@@ -1,10 +1,10 @@
 import Resume from '../models/Resume.js';
+import User from '../models/User.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { createRequire } from 'module';
 import fs from 'fs';
-
+import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { PDFParse } = require('pdf-parse');
+const pdfParse = require('pdf-parse');
 
 // Initialize Gemini AI client (lazy initialization)
 let genAI = null;
@@ -16,7 +16,7 @@ const initializeGemini = () => {
   }
   
   genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-2.5-flash' });
   
   console.log('✅ Resume Controller - Gemini AI initialized successfully');
 };
@@ -163,6 +163,74 @@ Focus on both ATS parsing and recruiter appeal.`;
   }
 };
 
+// Extract structured profile data from resume text using Gemini AI
+const extractProfileFromResume = async (resumeText) => {
+  try {
+    if (!model) {
+      initializeGemini();
+    }
+
+    const prompt = `Extract the following details from this resume text and return strict JSON.
+
+Resume Content:
+${resumeText}
+
+IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks, no extra text):
+
+{
+  "name": "",
+  "email": "",
+  "phone": "",
+  "education": [
+    {
+      "degree": "",
+      "institution": "",
+      "year": "",
+      "cgpa": ""
+    }
+  ],
+  "skills": [],
+  "certifications": []
+}
+
+Guidelines:
+- Extract ALL education entries found (degree, university/college, graduation year, CGPA/GPA if mentioned)
+- Extract ALL technical and soft skills as individual items
+- Extract ALL certifications, courses, or professional qualifications
+- If a field is not found, use empty string for strings or empty array for arrays
+- For education year, use the graduation year or expected graduation year
+- For CGPA, include the scale if mentioned (e.g. "8.5/10" or "3.8/4.0")
+- Return only valid JSON`;
+
+    console.log('🤖 Extracting profile data from resume with Gemini AI...');
+    
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+    
+    // Clean up response to extract JSON
+    let jsonText = text.trim();
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    jsonText = jsonText.trim();
+    
+    const extracted = JSON.parse(jsonText);
+    
+    // Validate and sanitize
+    extracted.name = extracted.name || '';
+    extracted.email = extracted.email || '';
+    extracted.phone = extracted.phone || '';
+    extracted.education = Array.isArray(extracted.education) ? extracted.education : [];
+    extracted.skills = Array.isArray(extracted.skills) ? extracted.skills.filter(s => typeof s === 'string' && s.trim()) : [];
+    extracted.certifications = Array.isArray(extracted.certifications) ? extracted.certifications.filter(c => typeof c === 'string' && c.trim()) : [];
+    
+    console.log('✅ Profile extraction completed successfully');
+    return extracted;
+  } catch (error) {
+    console.error('Error extracting profile from resume:', error);
+    throw new Error('Failed to extract profile data from resume');
+  }
+};
+
 // Upload and analyze resume
 export const uploadResume = async (req, res) => {
   let filePath = null;
@@ -183,8 +251,7 @@ export const uploadResume = async (req, res) => {
 
     // Step 1: Extract text from PDF
     const dataBuffer = fs.readFileSync(filePath);
-    const parser = new PDFParse({ data: dataBuffer });
-    const pdfData = await parser.getText();
+    const pdfData = await pdfParse(dataBuffer);
     const resumeText = pdfData.text;
 
     if (!resumeText || resumeText.trim().length < 100) {
@@ -202,7 +269,7 @@ export const uploadResume = async (req, res) => {
     console.log(`[Resume Upload] Analyzing with Gemini AI...`);
     const analysis = await analyzeResumeWithAI(resumeText);
 
-    // Step 3: Save to database
+    // Step 3: Save to database (including all analysis fields)
     const resume = await Resume.create({
       userId,
       fileName: req.file.originalname,
@@ -212,7 +279,10 @@ export const uploadResume = async (req, res) => {
         weaknesses: analysis.weaknesses,
         missingSkills: analysis.missingSkills,
         improvementSuggestions: analysis.improvementSuggestions,
-        atsScore: analysis.atsScore
+        atsScore: analysis.atsScore,
+        keywords: analysis.keywords,
+        scoreBreakdown: analysis.scoreBreakdown,
+        sections: analysis.sections
       }
     });
 
@@ -220,10 +290,50 @@ export const uploadResume = async (req, res) => {
     fs.unlinkSync(filePath);
     console.log(`[Resume Upload] Analysis complete. ATS Score: ${analysis.atsScore}`);
 
+    // Step 4: Extract profile data and update user profile
+    let profileExtraction = null;
+    try {
+      profileExtraction = await extractProfileFromResume(resumeText);
+      
+      // Build update object - only set non-empty fields
+      const profileUpdate = {
+        resumeExtracted: true,
+        resumeExtractedAt: new Date()
+      };
+      
+      if (profileExtraction.name && profileExtraction.name.trim()) {
+        profileUpdate.name = profileExtraction.name.trim();
+      }
+      if (profileExtraction.phone && profileExtraction.phone.trim()) {
+        profileUpdate.phone = profileExtraction.phone.trim();
+      }
+      if (profileExtraction.education && profileExtraction.education.length > 0) {
+        profileUpdate.education = profileExtraction.education.map(edu => ({
+          degree: edu.degree || '',
+          institution: edu.institution || '',
+          year: edu.year || '',
+          cgpa: edu.cgpa || ''
+        }));
+      }
+      if (profileExtraction.skills && profileExtraction.skills.length > 0) {
+        profileUpdate.skills = profileExtraction.skills;
+      }
+      if (profileExtraction.certifications && profileExtraction.certifications.length > 0) {
+        profileUpdate.certifications = profileExtraction.certifications;
+      }
+      
+      await User.findByIdAndUpdate(userId, profileUpdate, { new: true });
+      console.log(`[Resume Upload] User profile updated with extracted data`);
+    } catch (extractError) {
+      console.error('[Resume Upload] Profile extraction failed (non-fatal):', extractError.message);
+      // Non-fatal: resume analysis still succeeded
+    }
+
     res.status(201).json({
       success: true,
       message: 'Resume analyzed successfully',
-      data: resume
+      data: resume,
+      profileExtracted: profileExtraction ? true : false
     });
   } catch (error) {
     // Clean up file if it exists
@@ -351,6 +461,36 @@ export const deleteResume = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete resume'
+    });
+  }
+};
+
+// Re-extract profile data from most recent resume
+export const reExtractProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Get the most recent resume
+    const latestResume = await Resume.findOne({ userId }).sort({ uploadedAt: -1 });
+    if (!latestResume) {
+      return res.status(404).json({
+        success: false,
+        message: 'No resume found. Please upload a resume first.'
+      });
+    }
+
+    // We don't have the file anymore, but we can try to get text from the stored analysis
+    // For re-extraction, we need the original PDF. Since we delete it, we'll use keywords/data from analysis
+    // Better approach: re-upload. Send back a message.
+    return res.status(400).json({
+      success: false,
+      message: 'Please re-upload your resume to extract updated profile data.'
+    });
+  } catch (error) {
+    console.error('Error re-extracting profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to re-extract profile data'
     });
   }
 };

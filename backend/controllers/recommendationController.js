@@ -4,17 +4,20 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import cache from '../utils/cache.js';
 import mongoose from 'mongoose';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Lazy initialization - avoid reading env vars at import time (ESM hoists imports before dotenv.config())
+let genAI = null;
+const getGenAI = () => {
+  if (!genAI) {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is not set in environment variables');
+    }
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  }
+  return genAI;
+};
 
 // Cache key generator for user's daily challenge
 const getCacheKey = (userId) => `daily_challenge_${userId}`;
-
-// Get today's date string for cache consistency
-const getTodayDateString = () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today.toISOString().split('T')[0];
-};
 
 // Helper function to detect weak topics from interviews
 const detectWeakTopics = async (userId) => {
@@ -89,7 +92,7 @@ const getTodaysChallenge = async (userId) => {
 // Generate recommendations using Gemini AI
 const generateRecommendations = async (weakTopics) => {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = getGenAI().getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-2.5-flash' });
 
     const topicsList = weakTopics.map(t => t.topic).join(', ');
     
@@ -308,14 +311,27 @@ export const getChallengeHistory = async (req, res) => {
   }
 };
 
-// Clear user's cache (useful for testing or forcing new challenge)
+// Clear user's cache and today's challenge (forces new challenge generation)
 export const clearUserCache = async (req, res) => {
   try {
     const userId = req.user._id;
     const cacheKey = getCacheKey(userId);
     
+    // Clear in-memory cache
     cache.delete(cacheKey);
-    console.log(`[Cache CLEAR] Cleared cache for user: ${userId}`);
+
+    // Delete today's challenge from the database so a fresh one is generated
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    await Recommendation.deleteMany({
+      userId,
+      challengeDate: { $gte: today, $lt: tomorrow }
+    });
+
+    console.log(`[Cache CLEAR] Cleared cache + today's DB challenge for user: ${userId}`);
     
     res.status(200).json({
       success: true,

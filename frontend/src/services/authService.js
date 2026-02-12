@@ -26,6 +26,24 @@ export const getProfile = async () => {
   return response.data;
 };
 
+// Update user profile
+export const updateProfile = async (data) => {
+  const response = await api.put('/auth/profile', data);
+  if (response.data.user) {
+    localStorage.setItem('user', JSON.stringify(response.data.user));
+  }
+  return response.data;
+};
+
+// Change user password
+export const changePassword = async (data) => {
+  const response = await api.put('/auth/change-password', data);
+  if (response.data.token) {
+    localStorage.setItem('token', response.data.token);
+  }
+  return response.data;
+};
+
 // Logout user
 export const logout = () => {
   localStorage.removeItem('token');

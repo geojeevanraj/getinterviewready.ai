@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getInterviewHistory, getInterviewById, deleteInterview } from '../services/interviewService';
+import { Card, CardContent, Badge, PageContainer, PageContent, EmptyState, LoadingSkeleton } from '../components/ui';
+import Button from '../components/Button';
 
 const InterviewHistory = () => {
   const navigate = useNavigate();
@@ -30,7 +32,7 @@ const InterviewHistory = () => {
     try {
       const response = await getInterviewById(interviewId);
       navigate('/interview/result', {
-        state: { resultData: response.data.interview }
+        state: { resultData: response.data }
       });
     } catch (error) {
       console.error('Error fetching interview:', error);
@@ -75,239 +77,236 @@ const InterviewHistory = () => {
     }
   };
 
-  const getScoreColor = (score) => {
-    if (score >= 8) return 'text-green-600 bg-green-100';
-    if (score >= 6) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
-  };
-
-  const getScoreEmoji = (score) => {
-    if (score >= 8) return '🎉';
-    if (score >= 6) return '👍';
-    return '💪';
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-white shadow-lg">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16">
-              <div className="flex items-center">
-                <h1 className="text-2xl font-bold text-blue-600">AI Interview Platform</h1>
+      <PageContainer>
+        <header className="sticky top-0 z-20 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+          <div className="px-4 sm:px-6 lg:px-8 py-3.5">
+            <div className="flex items-center justify-between max-w-7xl mx-auto">
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Interview History</h1>
               </div>
             </div>
           </div>
-        </nav>
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
+        </header>
+        <PageContent>
+          <div className="space-y-4">
+            <LoadingSkeleton variant="card" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <LoadingSkeleton variant="card" />
+              <LoadingSkeleton variant="card" />
+            </div>
+          </div>
+        </PageContent>
+      </PageContainer>
     );
   }
 
+  const NoInterviewsIcon = () => (
+    <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Navigation Bar */}
-      <nav className="bg-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-blue-600">AI Interview Platform</h1>
+    <PageContainer>
+      {/* Header Bar */}
+      <header className="sticky top-0 z-20 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+        <div className="px-4 sm:px-6 lg:px-8 py-3.5">
+          <div className="flex items-center justify-between max-w-7xl mx-auto">
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Interview History</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Review your past interviews and track progress</p>
             </div>
-            <div className="flex items-center space-x-4">
-              <button
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => navigate('/dashboard')}
-                className="text-gray-700 hover:text-blue-600 font-medium"
               >
                 Dashboard
-              </button>
+              </Button>
             </div>
           </div>
         </div>
-      </nav>
+      </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Interview History</h2>
-          <p className="text-gray-600">Review your past interviews and track your progress</p>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filter === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilter('completed')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filter === 'completed'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Completed
-            </button>
-            <button
-              onClick={() => setFilter('started')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filter === 'started'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              In Progress
-            </button>
-          </div>
-        </div>
-
-        {/* Interviews List */}
-        {interviews.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {interviews.map((interview) => (
-              <div
-                key={interview._id}
-                className={`bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow ${
-                  interview.status === 'completed' ? 'cursor-pointer' : ''
-                }`}
-                onClick={() => interview.status === 'completed' && viewDetails(interview._id)}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">{interview.role}</h3>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="inline-block bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-semibold">
-                        {interview.level}
-                      </span>
-                      <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
-                        {interview.questions?.length || 0} Questions
-                      </span>
-                      {interview.status === 'completed' ? (
-                        <span className="inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">
-                          ✓ Completed
-                        </span>
-                      ) : (
-                        <span className="inline-block bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-semibold">
-                          ⏱ In Progress
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {interview.status === 'completed' && interview.averageScore !== null && (
-                    <div className={`text-3xl font-bold px-4 py-2 rounded-xl ${getScoreColor(interview.averageScore)}`}>
-                      {getScoreEmoji(interview.averageScore)} {interview.averageScore}/10
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <div>
-                      <span className="font-semibold">Created:</span>{' '}
-                      {new Date(interview.createdAt).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </div>
-                    {interview.completedAt && (
-                      <div>
-                        <span className="font-semibold">Completed:</span>{' '}
-                        {new Date(interview.completedAt).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Action Buttons */}
-                  {interview.status === 'completed' ? (
-                    <div className="mt-3">
-                      <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors">
-                        View Detailed Results →
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          continueInterview(interview);
-                        }}
-                        className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-2 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Continue Interview
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteInterview(e, interview._id)}
-                        disabled={deletingId === interview._id}
-                        className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Delete this interview"
-                      >
-                        {deletingId === interview._id ? (
-                          <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                        ) : (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-                  )}
-                </div>
+      <PageContent>
+        <div className="space-y-6">
+          {/* Filters */}
+          <Card>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={filter === 'all' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => setFilter('all')}
+                >
+                  All
+                </Button>
+                <Button
+                  variant={filter === 'completed' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => setFilter('completed')}
+                >
+                  Completed
+                </Button>
+                <Button
+                  variant={filter === 'started' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => setFilter('started')}
+                >
+                  In Progress
+                </Button>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <svg className="w-24 h-24 text-gray-300 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">No Interviews Found</h3>
-            <p className="text-gray-600 mb-6">
-              {filter === 'all' 
-                ? "You haven't completed any interviews yet"
-                : `No ${filter} interviews found`
-              }
-            </p>
-            <button
-              onClick={() => navigate('/interview/start')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-            >
-              Start Your First Interview
-            </button>
-          </div>
-        )}
+            </CardContent>
+          </Card>
 
-        {/* Action Button */}
-        <div className="mt-8 text-center">
-          <button
-            onClick={() => navigate('/interview/start')}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 rounded-lg font-semibold transition-all transform hover:scale-105 shadow-lg"
-          >
-            + Start New Interview
-          </button>
+          {/* Interviews List */}
+          {interviews.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {interviews.map((interview) => (
+                  <Card
+                    key={interview._id}
+                    hoverable={interview.status === 'completed'}
+                    onClick={() => interview.status === 'completed' && viewDetails(interview._id)}
+                  >
+                    <CardContent>
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2.5">{interview.role}</h3>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="purple">{interview.level}</Badge>
+                            <Badge variant="primary">{interview.questions?.length || 0} Questions</Badge>
+                            {interview.status === 'completed' ? (
+                              <Badge variant="success">✓ Completed</Badge>
+                            ) : (
+                              <Badge variant="warning">⏱ In Progress</Badge>
+                            )}
+                          </div>
+                        </div>
+                        {interview.status === 'completed' && interview.averageScore !== null && (
+                          <div className="flex-shrink-0 ml-3">
+                            <div className={`text-2xl font-semibold px-3 py-2 rounded-lg border ${
+                              interview.averageScore >= 8 
+                                ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                : interview.averageScore >= 6
+                                ? 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                                : 'bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                            }`}>
+                              {interview.averageScore}<span className="text-base text-gray-500 dark:text-gray-400">/10</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-3 border-t border-gray-200 dark:border-gray-800">
+                        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-3">
+                          <div>
+                            <span className="font-medium">Created:</span>{' '}
+                            {new Date(interview.createdAt).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </div>
+                          {interview.completedAt && (
+                            <div>
+                              <span className="font-medium">Completed:</span>{' '}
+                              {new Date(interview.completedAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        {interview.status === 'completed' ? (
+                          <Button variant="primary" size="md" fullWidth>
+                            View Detailed Results →
+                          </Button>
+                        ) : (
+                          <div className="flex gap-2">
+                            <Button
+                              variant="primary"
+                              size="md"
+                              fullWidth
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                continueInterview(interview);
+                              }}
+                              leftIcon={
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                </svg>
+                              }
+                            >
+                              Continue
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="md"
+                              onClick={(e) => handleDeleteInterview(e, interview._id)}
+                              loading={deletingId === interview._id}
+                              leftIcon={
+                                !deletingId && (
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                )
+                              }
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Action Button */}
+              <div className="flex justify-center">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={() => navigate('/interview/start')}
+                  leftIcon={
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  }
+                >
+                  Start New Interview
+                </Button>
+              </div>
+            </>
+          ) : (
+            <EmptyState
+              icon={<NoInterviewsIcon />}
+              title="No Interviews Found"
+              description={
+                filter === 'all' 
+                  ? "You haven't completed any interviews yet"
+                  : `No ${filter} interviews found`
+              }
+              action={
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={() => navigate('/interview/start')}
+                >
+                  Start Your First Interview
+                </Button>
+              }
+            />
+          )}
         </div>
-      </div>
-    </div>
+      </PageContent>
+    </PageContainer>
   );
 };
 

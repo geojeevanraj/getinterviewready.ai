@@ -10,6 +10,7 @@ export const useWebcam = () => {
   const [error, setError] = useState(null);
   const [isSupported, setIsSupported] = useState(true);
   const videoRef = useRef(null);
+  const wasEnabled = useRef(false);
 
   // Check if getUserMedia is supported
   useEffect(() => {
@@ -54,6 +55,7 @@ export const useWebcam = () => {
       console.log('Camera access granted', mediaStream);
       setStream(mediaStream);
       setIsEnabled(true);
+      wasEnabled.current = true;
       setError(null);
 
       return true;
@@ -97,11 +99,13 @@ export const useWebcam = () => {
     };
   }, [stream]);
 
-  // Handle page visibility change (pause when tab inactive)
+  // Handle page visibility change (pause when tab inactive, restart on return)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden && isEnabled) {
         stopCamera();
+      } else if (!document.hidden && !isEnabled && wasEnabled.current) {
+        startCamera();
       }
     };
 
@@ -109,7 +113,7 @@ export const useWebcam = () => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isEnabled, stopCamera]);
+  }, [isEnabled, stopCamera, startCamera]);
 
   return {
     videoRef,

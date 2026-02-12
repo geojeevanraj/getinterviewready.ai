@@ -44,7 +44,7 @@ class TextToSpeech {
    * @returns {Promise}
    */
   speak(text, options = {}) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       if (!this.isSupported()) {
         reject(new Error('Text-to-speech is not supported in this browser'));
         return;
@@ -65,13 +65,12 @@ class TextToSpeech {
       if (options.voice) {
         utterance.voice = options.voice;
       } else {
-        // Use default English voice
-        this.getVoices().then(voices => {
-          const englishVoice = voices.find(voice => voice.lang.startsWith('en'));
-          if (englishVoice) {
-            utterance.voice = englishVoice;
-          }
-        });
+        // Use default English voice - await voices before speaking
+        const voices = await this.getVoices();
+        const englishVoice = voices.find(voice => voice.lang.startsWith('en'));
+        if (englishVoice) {
+          utterance.voice = englishVoice;
+        }
       }
 
       // Event handlers

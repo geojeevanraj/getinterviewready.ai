@@ -1,4 +1,5 @@
 import Interview from '../models/Interview.js';
+import Recommendation from '../models/Recommendation.js';
 import mongoose from 'mongoose';
 
 // @desc    Get dashboard summary with analytics
@@ -208,69 +209,6 @@ const detectWeakTopicsOptimized = async (userId) => {
 };
 
 /**
- * Detect weak topics from interview evaluations (Legacy - kept for reference)
- * Analyzes weaknesses across all interviews to identify patterns
- */
-const detectWeakTopics = async (interviews) => {
-  try {
-    const weaknessKeywords = {};
-
-    // Extract keywords from weaknesses
-    interviews.forEach(interview => {
-      if (interview.evaluations && interview.evaluations.length > 0) {
-        interview.evaluations.forEach(evaluation => {
-          if (evaluation.weaknesses && evaluation.score < 7) {
-            // Extract meaningful words from weaknesses
-            const words = evaluation.weaknesses
-              .toLowerCase()
-              .split(/\W+/)
-              .filter(word => word.length > 4); // Only words longer than 4 chars
-
-            // Common technical keywords to track
-            const technicalKeywords = [
-              'react', 'node', 'mongodb', 'express', 'javascript', 'async',
-              'promise', 'state', 'component', 'hooks', 'database', 'query',
-              'api', 'rest', 'authentication', 'security', 'performance',
-              'testing', 'deployment', 'error', 'handling', 'design', 'pattern',
-              'algorithm', 'data', 'structure', 'complexity', 'optimization',
-              'backend', 'frontend', 'fullstack', 'server', 'client'
-            ];
-
-            words.forEach(word => {
-              if (technicalKeywords.includes(word)) {
-                weaknessKeywords[word] = (weaknessKeywords[word] || 0) + 1;
-              }
-            });
-          }
-        });
-      }
-    });
-
-    // Sort by frequency and get top 3
-    const sortedWeaknesses = Object.entries(weaknessKeywords)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([topic, count]) => ({
-        topic: topic.charAt(0).toUpperCase() + topic.slice(1),
-        frequency: count,
-        recommendation: getRecommendation(topic)
-      }));
-
-    return sortedWeaknesses.length > 0 ? sortedWeaknesses : [
-      {
-        topic: 'No patterns detected yet',
-        frequency: 0,
-        recommendation: 'Complete more interviews to identify weak areas'
-      }
-    ];
-
-  } catch (error) {
-    console.error('Weak topic detection error:', error);
-    return [];
-  }
-};
-
-/**
  * Get recommendation based on weak topic
  */
 const getRecommendation = (topic) => {
@@ -385,6 +323,162 @@ export const getDetailedStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while fetching statistics'
+    });
+  }
+};
+
+// @desc    Get user activity streak and heatmap data
+// @route   GET /api/dashboard/streak
+// @access  Private
+export const getStreakData = async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+
+    // Current year: Jan 1 to Dec 31
+    const currentYear = new Date().getFullYear();
+    const yearStart = new Date(currentYear, 0, 1); // Jan 1
+    const yearEnd = new Date(currentYear, 11, 31, 23, 59, 59); // Dec 31
+
+    // Fetch interview completion dates and challenge completion dates in parallel
+    const [interviewDates, challengeDates] = await Promise.all([
+      Interview.aggregate([
+        {
+          $match: {
+            userId,
+            completedAt: { $gte: yearStart, $lte: yearEnd, $ne: null }
+          }
+        },
+        {
+          $project: {
+            date: { $dateToString: { format: '%Y-%m-%d', date: '$completedAt' } }
+          }
+        },
+        {
+          $group: {
+            _id: '$date',
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+      Recommendation.aggregate([
+        {
+          $match: {
+            userId,
+            completed: true,
+            completedAt: { $gte: yearStart, $lte: yearEnd, $ne: null }
+          }
+        },
+        {
+          $project: {
+            date: { $dateToString: { format: '%Y-%m-%d', date: '$completedAt' } }
+          }
+        },
+        {
+          $group: {
+            _id: '$date',
+            count: { $sum: 1 }
+          }
+        }
+      ])
+    ]);
+
+    // Merge activity counts by date
+    const activityMap = {};
+    interviewDates.forEach(d => {
+      activityMap[d._id] = (activityMap[d._id] || 0) + d.count;
+    });
+    challengeDates.forEach(d => {
+      activityMap[d._id] = (activityMap[d._id] || 0) + d.count;
+    });
+
+    // Convert to sorted array
+    const activeDates = Object.keys(activityMap).sort();
+    const totalActiveDays = activeDates.length;
+
+    // Calculate total submissions
+    const totalSubmissions = Object.values(activityMap).reduce((a, b) => a + b, 0);
+
+    // Calculate current streak and max streak
+    let currentStreak = 0;
+    let maxStreak = 0;
+
+    if (activeDates.length > 0) {
+      // Build a Set of active date strings for O(1) lookup
+      const activeSet = new Set(activeDates);
+
+      // Current streak: count consecutive days back from today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      let checkDate = new Date(today);
+
+      // Check if today is active; if not, check yesterday (streak might still be alive)
+      const todayStr = checkDate.toISOString().split('T')[0];
+      if (!activeSet.has(todayStr)) {
+        checkDate.setDate(checkDate.getDate() - 1);
+        const yesterdayStr = checkDate.toISOString().split('T')[0];
+        if (!activeSet.has(yesterdayStr)) {
+          currentStreak = 0;
+        } else {
+          // Start counting from yesterday
+          while (activeSet.has(checkDate.toISOString().split('T')[0])) {
+            currentStreak++;
+            checkDate.setDate(checkDate.getDate() - 1);
+          }
+        }
+      } else {
+        // Today is active, count backwards
+        while (activeSet.has(checkDate.toISOString().split('T')[0])) {
+          currentStreak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        }
+      }
+
+      // Max streak: find longest consecutive run
+      let tempStreak = 1;
+      maxStreak = 1;
+      for (let i = 1; i < activeDates.length; i++) {
+        const prev = new Date(activeDates[i - 1]);
+        const curr = new Date(activeDates[i]);
+        const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
+        if (diffDays === 1) {
+          tempStreak++;
+          maxStreak = Math.max(maxStreak, tempStreak);
+        } else {
+          tempStreak = 1;
+        }
+      }
+    }
+
+    // Build heatmap data: array of { date, count } for every day in the current year
+    const heatmap = [];
+    const startDate = new Date(yearStart);
+    const endDate = new Date();
+    endDate.setHours(0, 0, 0, 0);
+
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      heatmap.push({
+        date: dateStr,
+        count: activityMap[dateStr] || 0
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        currentStreak,
+        maxStreak,
+        totalActiveDays,
+        totalSubmissions,
+        year: currentYear,
+        heatmap
+      }
+    });
+  } catch (error) {
+    console.error('Streak data error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching streak data'
     });
   }
 };

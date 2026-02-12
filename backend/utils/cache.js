@@ -141,12 +141,13 @@ class CacheService {
 // Singleton instance
 const cache = new CacheService();
 
-// Cleanup expired entries every hour
-setInterval(() => {
+// Cleanup expired entries every hour (unref to not prevent process exit)
+const cleanupInterval = setInterval(() => {
   const cleaned = cache.cleanup();
   if (cleaned > 0) {
     console.log(`[Cache] Cleaned up ${cleaned} expired entries`);
   }
 }, 60 * 60 * 1000);
+cleanupInterval.unref();
 
 export default cache;

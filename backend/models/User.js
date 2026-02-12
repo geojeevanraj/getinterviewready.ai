@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
       match: [
-        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+        /^[\w.-]+@[\w.-]+\.\w{2,}$/,
         'Please provide a valid email'
       ]
     },
@@ -30,6 +30,33 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ['user', 'admin'],
       default: 'user'
+    },
+    lastLogin: {
+      type: Date,
+      default: null
+    },
+    phone: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    education: [
+      {
+        degree: { type: String, trim: true, default: '' },
+        institution: { type: String, trim: true, default: '' },
+        year: { type: String, trim: true, default: '' },
+        cgpa: { type: String, trim: true, default: '' }
+      }
+    ],
+    skills: [{ type: String, trim: true }],
+    certifications: [{ type: String, trim: true }],
+    resumeExtracted: {
+      type: Boolean,
+      default: false
+    },
+    resumeExtractedAt: {
+      type: Date,
+      default: null
     }
   },
   {

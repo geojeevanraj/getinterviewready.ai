@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { register } from '../services/authService';
+import { useAuth } from '../contexts/AuthContext';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
+import { Card, CardHeader, CardContent, CardFooter } from '../components/ui';
 
 const Register = () => {
   const navigate = useNavigate();
+  const { register } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -71,9 +73,7 @@ const Register = () => {
     try {
       await register({ name, email, password });
       setAlert({ type: 'success', message: 'Registration successful! Redirecting...' });
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1500);
+      navigate('/dashboard');
     } catch (error) {
       const message = error.response?.data?.message || 'Registration failed. Please try again.';
       setAlert({ type: 'error', message });
@@ -82,75 +82,113 @@ const Register = () => {
     }
   };
 
+  // User icon
+  const UserIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  );
+
+  // Email icon
+  const EmailIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+    </svg>
+  );
+
+  // Lock icon
+  const LockIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+    </svg>
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-2xl p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Create Account</h1>
-          <p className="mt-2 text-gray-600">Join our AI Interview Platform</p>
-        </div>
-
-        <Alert
-          type={alert.type}
-          message={alert.message}
-          onClose={() => setAlert({ type: '', message: '' })}
-        />
-
-        <form onSubmit={handleSubmit}>
-          <Input
-            label="Full Name"
-            type="text"
-            name="name"
-            value={name}
-            onChange={handleChange}
-            placeholder="Enter your full name"
-            error={errors.name}
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full">
+        <Card>
+          <CardHeader 
+            title="Create Account"
+            subtitle="Join our AI Interview Platform"
           />
 
-          <Input
-            label="Email Address"
-            type="email"
-            name="email"
-            value={email}
-            onChange={handleChange}
-            placeholder="Enter your email"
-            error={errors.email}
-          />
+          <CardContent>
+            <Alert
+              type={alert.type}
+              message={alert.message}
+              onClose={() => setAlert({ type: '', message: '' })}
+            />
 
-          <Input
-            label="Password"
-            type="password"
-            name="password"
-            value={password}
-            onChange={handleChange}
-            placeholder="Enter your password"
-            error={errors.password}
-          />
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Input
+                label="Full Name"
+                type="text"
+                name="name"
+                value={name}
+                onChange={handleChange}
+                placeholder="John Doe"
+                error={errors.name}
+                leftIcon={<UserIcon />}
+                required
+              />
 
-          <Input
-            label="Confirm Password"
-            type="password"
-            name="confirmPassword"
-            value={confirmPassword}
-            onChange={handleChange}
-            placeholder="Confirm your password"
-            error={errors.confirmPassword}
-          />
+              <Input
+                label="Email Address"
+                type="email"
+                name="email"
+                value={email}
+                onChange={handleChange}
+                placeholder="you@example.com"
+                error={errors.email}
+                leftIcon={<EmailIcon />}
+                required
+              />
 
-          <Button type="submit" loading={loading}>
-            Register
-          </Button>
-        </form>
+              <Input
+                label="Password"
+                type="password"
+                name="password"
+                value={password}
+                onChange={handleChange}
+                placeholder="At least 6 characters"
+                error={errors.password}
+                leftIcon={<LockIcon />}
+                helperText="Must be at least 6 characters"
+                required
+              />
 
-        <p className="mt-6 text-center text-gray-600">
-          Already have an account?{' '}
-          <Link
-            to="/login"
-            className="text-blue-600 hover:text-blue-800 font-semibold"
-          >
-            Login here
-          </Link>
-        </p>
+              <Input
+                label="Confirm Password"
+                type="password"
+                name="confirmPassword"
+                value={confirmPassword}
+                onChange={handleChange}
+                placeholder="Re-enter your password"
+                error={errors.confirmPassword}
+                leftIcon={<LockIcon />}
+                required
+              />
+
+              <div className="pt-2">
+                <Button type="submit" variant="primary" size="lg" fullWidth loading={loading}>
+                  Create Account
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+
+          <CardFooter>
+            <p className="text-center text-sm text-gray-600 dark:text-gray-400 w-full">
+              Already have an account?{' '}
+              <Link
+                to="/login"
+                className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-semibold transition-colors"
+              >
+                Login here
+              </Link>
+            </p>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   );

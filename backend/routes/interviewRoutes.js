@@ -10,6 +10,7 @@ import {
   submitInterview
 } from '../controllers/interviewController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import { validateObjectId } from '../middleware/validateObjectId.js';
 
 const router = express.Router();
 
@@ -44,27 +45,47 @@ const submitAnswerValidation = [
     .withMessage('Answer must be at least 10 characters long')
 ];
 
+// Validation rules for submitting full interview
+const submitInterviewValidation = [
+  body('interviewId')
+    .notEmpty()
+    .withMessage('Interview ID is required')
+    .isMongoId()
+    .withMessage('Invalid interview ID format'),
+  body('answers')
+    .isArray({ min: 1 })
+    .withMessage('Answers must be a non-empty array'),
+  body('answers.*.questionId')
+    .notEmpty()
+    .withMessage('Each answer must have a questionId')
+    .isInt({ min: 1 })
+    .withMessage('questionId must be a positive integer'),
+  body('answers.*.userAnswer')
+    .isString()
+    .withMessage('Each answer must have a userAnswer string')
+];
+
 // Routes - All routes are protected (require authentication)
 
 // Start new interview
 router.post('/start', protect, startInterviewValidation, startInterview);
 
 // Submit interview answers for evaluation
-router.post('/submit', protect, submitInterview);
+router.post('/submit', protect, submitInterviewValidation, submitInterview);
 
 // Get interview history
 router.get('/history', protect, getInterviewHistory);
 
 // Get specific interview
-router.get('/:id', protect, getInterviewById);
+router.get('/:id', protect, validateObjectId('id'), getInterviewById);
 
 // Submit answer for a question
-router.put('/:id/answer', protect, submitAnswerValidation, submitAnswer);
+router.put('/:id/answer', protect, validateObjectId('id'), submitAnswerValidation, submitAnswer);
 
 // Complete interview
-router.put('/:id/complete', protect, completeInterview);
+router.put('/:id/complete', protect, validateObjectId('id'), completeInterview);
 
 // Delete interview
-router.delete('/:id', protect, deleteInterview);
+router.delete('/:id', protect, validateObjectId('id'), deleteInterview);
 
 export default router;

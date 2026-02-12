@@ -292,6 +292,15 @@ export const deleteInterview = async (req, res) => {
 // @access  Private
 export const submitInterview = async (req, res) => {
   try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
     const { interviewId, answers, confidenceMetrics } = req.body;
     const userId = req.user.id;
 

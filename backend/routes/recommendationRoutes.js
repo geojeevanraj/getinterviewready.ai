@@ -6,7 +6,8 @@ import {
   clearUserCache,
   getCacheStats
 } from '../controllers/recommendationController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, admin } from '../middleware/authMiddleware.js';
+import { validateObjectId } from '../middleware/validateObjectId.js';
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ router.use(protect);
 router.get('/', getRecommendations);
 
 // Mark challenge as completed
-router.put('/challenge/:recommendationId/complete', completeChallenge);
+router.put('/challenge/:recommendationId/complete', validateObjectId('recommendationId'), completeChallenge);
 
 // Get challenge history
 router.get('/history', getChallengeHistory);
@@ -25,7 +26,7 @@ router.get('/history', getChallengeHistory);
 // Clear user's cache (force new challenge generation)
 router.delete('/cache', clearUserCache);
 
-// Get cache statistics (for monitoring)
-router.get('/cache/stats', getCacheStats);
+// Get cache statistics (admin only)
+router.get('/cache/stats', admin, getCacheStats);
 
 export default router;

@@ -1,6 +1,6 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { register, login, getProfile } from '../controllers/authController.js';
+import { register, login, getProfile, updateProfile, changePassword } from '../controllers/authController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -40,9 +40,32 @@ const loginValidation = [
     .withMessage('Password is required')
 ];
 
+const updateProfileValidation = [
+  body('name')
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage('Name cannot be empty if provided')
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Name must be between 2 and 50 characters')
+];
+
+const changePasswordValidation = [
+  body('currentPassword')
+    .notEmpty()
+    .withMessage('Current password is required'),
+  body('newPassword')
+    .notEmpty()
+    .withMessage('New password is required')
+    .isLength({ min: 6 })
+    .withMessage('New password must be at least 6 characters long')
+];
+
 // Routes
 router.post('/register', registerValidation, register);
 router.post('/login', loginValidation, login);
 router.get('/profile', protect, getProfile);
+router.put('/profile', protect, updateProfileValidation, updateProfile);
+router.put('/change-password', protect, changePasswordValidation, changePassword);
 
 export default router;

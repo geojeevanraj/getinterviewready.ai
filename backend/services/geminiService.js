@@ -10,7 +10,7 @@ const initializeGemini = () => {
   }
   
   genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-2.5-flash' });
   
   console.log('✅ Gemini AI initialized successfully');
 };
@@ -29,33 +29,60 @@ export const generateInterviewQuestions = async (role, level, count = 5) => {
       initializeGemini();
     }
 
-    // Construct the prompt
-    const prompt = `Act as a senior technical interviewer.
-Generate exactly ${count} interview questions for a ${role} position at ${level} level.
+    // Construct the prompt for HR/Behavioral questions
+    const prompt = `Act as a senior HR interviewer conducting behavioral and situational interviews.
+Generate exactly ${count} HR interview questions for a ${role} position at ${level} level.
 
-Requirements:
-- Questions should be relevant to ${role} role
-- Difficulty should match ${level} level
-- Cover different aspects: technical skills, problem-solving, experience
-- Questions should be clear and professional
+CRITICAL REQUIREMENTS:
+- DO NOT generate technical coding or technical implementation questions
+- FOCUS ONLY on HR, behavioral, and situational questions
+- Questions should assess soft skills, work ethics, teamwork, leadership, problem-solving approach
+- Use STAR method framework (Situation, Task, Action, Result) for behavioral questions
+- Include questions about: past experiences, conflict resolution, teamwork, motivation, career goals, strengths/weaknesses
+
+QUESTION CATEGORIES TO INCLUDE:
+1. Behavioral Questions: "Tell me about a time when..."
+2. Situational Questions: "How would you handle..."
+3. Motivation & Goals: "Why do you want to work here?", "Where do you see yourself..."
+4. Strengths & Weaknesses: Self-assessment questions
+5. Cultural Fit: Team dynamics, work style preferences
+6. Conflict Resolution: Dealing with difficult situations or people
+
+EXAMPLES OF GOOD HR QUESTIONS:
+✅ "Tell me about a time when you had to meet a tight deadline. How did you manage your time and prioritize tasks?"
+✅ "Describe a situation where you had a conflict with a team member. How did you resolve it?"
+✅ "How would you handle a situation where your manager gives you feedback you don't agree with?"
+✅ "What motivates you to do your best work?"
+✅ "Tell me about a project that didn't go as planned. What did you learn from it?"
+
+AVOID TECHNICAL QUESTIONS LIKE:
+❌ "Explain how authentication works"
+❌ "Write code to solve X problem"
+❌ "What is the difference between X and Y technology"
+
+Difficulty Level Context for ${level}:
+- Beginner: Entry-level questions, basic teamwork, learning experiences
+- Intermediate: Mid-level questions, leadership potential, project management
+- Advanced: Senior-level questions, strategic thinking, mentoring, complex decision-making
 
 Return output strictly in JSON format as a valid JSON array:
 [
   {
     "id": 1,
-    "question": "Question text here",
+    "question": "Tell me about a time when you faced a significant challenge at work. How did you approach it and what was the outcome?",
     "difficulty": "${level}"
   },
   {
     "id": 2,
-    "question": "Question text here",
+    "question": "How would you handle a situation where you disagree with your team's approach to a project?",
     "difficulty": "${level}"
   }
 ]
 
-IMPORTANT: Return ONLY the JSON array, no additional text or markdown formatting.`;
+IMPORTANT: Return ONLY the JSON array, no additional text or markdown formatting.
+Make questions specific and relevant to a ${role} role.`;
 
-    console.log(`🤖 Generating ${count} questions for ${role} (${level})...`);
+    console.log(`🤖 Generating ${count} HR/Behavioral questions for ${role} (${level})...`);
 
     // Call Gemini API with retry logic
     let response;
@@ -200,12 +227,14 @@ export const evaluateAnswer = async (question, userAnswer) => {
 
     console.log(`🤖 Evaluating answer for question...`);
 
+    const effectiveAnswer = userAnswer?.trim() || '(No answer provided)';
+
     // Construct the evaluation prompt
     const prompt = `You are a senior technical interviewer evaluating a candidate's answer.
 
 Question: ${question}
 
-User's Answer: ${userAnswer}
+User's Answer: ${effectiveAnswer}
 
 Evaluate this answer and return your assessment in STRICT JSON format. No markdown, no code blocks, just pure JSON.
 
@@ -213,14 +242,15 @@ Evaluate this answer and return your assessment in STRICT JSON format. No markdo
   "score": <number 0-10>,
   "strengths": "<what the candidate did well>",
   "weaknesses": "<areas for improvement>",
-  "improvedAnswer": "<a better version of the answer>"
+  "improvedAnswer": "<a complete ideal answer to the question>"
 }
 
 Requirements:
 - Score 0-10 (10 is perfect)
 - Be constructive and professional
 - Keep feedback concise (2-3 sentences each)
-- Improved answer should be 2-3 sentences
+- The "improvedAnswer" must ALWAYS contain a full, correct, ideal answer to the question, even if the candidate did not provide any answer. Never say "please provide an answer" — instead write the actual ideal response.
+- Improved answer should be 2-4 sentences
 
 Return ONLY the JSON object, nothing else.`;
 
@@ -455,9 +485,161 @@ Focus on:
   }
 };
 
+/**
+ * Generate aptitude test questions using Gemini AI
+ * @param {string} category - Category (e.g., "Quantitative Aptitude", "Logical Reasoning", "Verbal Ability")
+ * @param {string} difficulty - Difficulty level (e.g., "Easy", "Medium", "Hard")
+ * @param {number} count - Number of questions to generate (5-50)
+ * @returns {Promise<Array>} Array of generated MCQ questions
+ */
+export const generateAptitudeQuestions = async (category, difficulty, count) => {
+  try {
+    // Initialize if not already done
+    if (!model) {
+      initializeGemini();
+    }
+
+    // Validate count (5-50)
+    if (count < 5 || count > 50) {
+      throw new Error('Question count must be between 5 and 50');
+    }
+
+    // Validate category
+    const validCategories = ['Quantitative Aptitude', 'Logical Reasoning', 'Verbal Ability'];
+    if (!validCategories.includes(category)) {
+      throw new Error(`Invalid category. Must be one of: ${validCategories.join(', ')}`);
+    }
+
+    // Validate difficulty
+    const validDifficulties = ['Easy', 'Medium', 'Hard'];
+    if (!validDifficulties.includes(difficulty)) {
+      throw new Error(`Invalid difficulty. Must be one of: ${validDifficulties.join(', ')}`);
+    }
+
+    // Construct the prompt for aptitude questions
+    const prompt = `Generate exactly ${count} ${category} multiple choice questions at ${difficulty} difficulty level.
+
+CRITICAL REQUIREMENTS:
+- Generate ONLY ${category} questions
+- All questions must be at ${difficulty} difficulty level
+- Each question must have exactly 4 options (A, B, C, D)
+- Each question must have ONE correct answer
+- Provide detailed explanation for each answer
+
+CATEGORY GUIDELINES:
+
+${category === 'Quantitative Aptitude' ? `
+QUANTITATIVE APTITUDE:
+- Arithmetic: Percentages, Profit & Loss, Time & Work, Speed & Distance
+- Algebra: Linear equations, Quadratic equations, Progressions
+- Geometry: Areas, Volumes, Triangles, Circles
+- Number System: LCM, GCD, Prime numbers, Divisibility
+- Data Interpretation: Charts, Graphs, Tables
+- Easy: Basic calculations, single-step problems
+- Medium: Multi-step problems, moderate complexity
+- Hard: Complex problems, multiple concepts combined
+` : ''}
+
+${category === 'Logical Reasoning' ? `
+LOGICAL REASONING:
+- Pattern Recognition: Number series, Letter series
+- Analogies: Word analogies, Number analogies
+- Blood Relations: Family tree problems
+- Direction Sense: Movement and direction problems
+- Coding-Decoding: Letter/Number coding
+- Syllogisms: Logical deductions
+- Puzzles: Seating arrangements, Ranking, Scheduling
+- Easy: Simple patterns, direct logic
+- Medium: Multi-step reasoning, moderate complexity
+- Hard: Complex puzzles, multiple conditions
+` : ''}
+
+${category === 'Verbal Ability' ? `
+VERBAL ABILITY:
+- Vocabulary: Synonyms, Antonyms, Word meanings
+- Grammar: Error spotting, Sentence correction
+- Reading Comprehension: Short passages with questions
+- Sentence Rearrangement: Jumbled sentences
+- Fill in the Blanks: Context-based word selection
+- Idioms & Phrases: Common expressions
+- Para Jumbles: Paragraph reordering
+- Easy: Basic vocabulary, simple grammar
+- Medium: Moderate vocabulary, complex sentences
+- Hard: Advanced vocabulary, complex comprehension
+` : ''}
+
+DIFFICULTY LEVEL SPECIFICS FOR ${difficulty}:
+${difficulty === 'Easy' ? '- Questions should be straightforward and test basic concepts\n- Single-step solutions\n- Common scenarios\n- Clear and simple language' : ''}
+${difficulty === 'Medium' ? '- Questions should test deeper understanding\n- Multi-step solutions\n- Moderate complexity\n- Some trick elements' : ''}
+${difficulty === 'Hard' ? '- Questions should be challenging and complex\n- Multiple concepts combined\n- Tricky scenarios\n- Advanced problem-solving required' : ''}
+
+Return output strictly in JSON format as a valid JSON array:
+[
+  {
+    "question": "Clear question text with all necessary details",
+    "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
+    "correctAnswer": "Option A text",
+    "explanation": "Detailed explanation of why this is the correct answer and how to solve it"
+  }
+]
+
+IMPORTANT RULES:
+1. Return ONLY the JSON array, no additional text or markdown formatting
+2. Ensure all JSON is valid and properly escaped
+3. Each question must be unique and different
+4. Options should be plausible distractors, not obviously wrong
+5. Explanations must be educational and helpful
+6. For ${category}, make questions realistic and exam-like`;
+
+    console.log(`🤖 Generating ${count} ${category} questions at ${difficulty} level...`);
+
+    // Generate content
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log(`📝 Received response from Gemini`);
+
+    // Parse and validate response
+    const questions = parseGeminiResponse(text);
+
+    // Validate question structure
+    const validQuestions = questions
+      .filter(q => {
+        return (
+          q.question &&
+          Array.isArray(q.options) &&
+          q.options.length === 4 &&
+          q.correctAnswer &&
+          q.explanation
+        );
+      })
+      .map((q, index) => ({
+        id: index + 1,
+        question: q.question,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation
+      }));
+
+    if (validQuestions.length === 0) {
+      throw new Error('No valid questions generated by AI');
+    }
+
+    console.log(`✅ Generated ${validQuestions.length} valid questions`);
+
+    return validQuestions;
+
+  } catch (error) {
+    console.error('❌ Error generating aptitude questions:', error.message);
+    throw new Error(`Failed to generate aptitude questions: ${error.message}`);
+  }
+};
+
 export default {
   generateInterviewQuestions,
   evaluateAnswer,
   generateConfidenceFeedback,
+  generateAptitudeQuestions,
   validateGeminiApiKey
 };

@@ -7,6 +7,7 @@ import {
 } from '../controllers/resumeController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import upload from '../config/multer.js';
+import { validateObjectId } from '../middleware/validateObjectId.js';
 
 const router = express.Router();
 
@@ -20,9 +21,9 @@ router.post('/upload', upload.single('resume'), uploadResume);
 router.get('/history', getResumeHistory);
 
 // Get single resume analysis
-router.get('/:resumeId', getResumeById);
+router.get('/:resumeId', validateObjectId('resumeId'), getResumeById);
 
 // Delete resume
-router.delete('/:resumeId', deleteResume);
+router.delete('/:resumeId', validateObjectId('resumeId'), deleteResume);
 
 export default router;

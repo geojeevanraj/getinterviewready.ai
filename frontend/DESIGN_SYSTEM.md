@@ -556,6 +556,4 @@ To customize the design system:
 
 ---
 
-**Questions?** Review existing components or check the design tokens file.
 
-**Contributing?** Follow the component checklist and maintain consistency.

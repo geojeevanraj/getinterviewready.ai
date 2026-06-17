@@ -18,6 +18,7 @@
 - [Overview](#-overview)
 - [Features](#-features)
 - [Tech Stack](#️-tech-stack)
+- [Architecture Diagram](#️-architecture-diagram)
 - [Getting Started](#-getting-started)
 - [API Documentation](#-api-documentation)
 - [Project Structure](#-project-structure)
@@ -88,6 +89,24 @@ A comprehensive full-stack **MERN** application designed to help candidates prep
 | **JWT** | Secure authentication tokens |
 | **Bcrypt** | Password hashing |
 | **Google Gemini AI** | AI-powered question generation |
+
+---
+
+## 🏗️ Architecture Diagram
+
+```mermaid
+flowchart LR
+    U[User Browser]
+    F[Frontend (React + Vite)]
+    B[Backend API (Express.js)]
+    A[Google Gemini AI]
+    D[(MongoDB)]
+
+    U --> F
+    F -->|REST API + JWT| B
+    B --> D
+    B --> A
+```
 
 ---
 
